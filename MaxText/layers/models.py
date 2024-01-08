@@ -38,6 +38,7 @@ Embed = embeddings.Embed
 LLaMARotaryEmbedding = embeddings.LLaMARotaryEmbedding
 Attention = attentions.Attention
 RMSNorm = normalizations.RMSNorm
+PositionalEmbedding = embeddings.PositionalEmbedding
 
 #------------------------------------------------------------------------------
 # The network: Decoder & Transformer Definitions
@@ -152,6 +153,9 @@ class Decoder(nn.Module):
     elif self.config.model_name[0:6] == "llama2":
       from layers import llama2
       return llama2.LlamaDecoderLayer
+    elif self.config.model_name[0:5] == "gamma":
+      from layers import gamma
+      return gamma.GammaDecoderLayer
     else:
       raise ValueError(f"Incorrect model name {self.config.model_name=}")
 
@@ -169,11 +173,16 @@ class Decoder(nn.Module):
     assert decoder_input_tokens.ndim == 2  # [batch, len]
 
     # [batch, length] -> [batch, length, emb_dim]
+    jax.debug.print("Mohit: input tokens = {x}", x = decoder_input_tokens[0,:])
     y = self.shared_embedding(decoder_input_tokens.astype('int32'))
+    # jax.debug.print("Mohit: shared_embed[0,0,0] = {x}", x = y[0,:,0])
     y = nn.Dropout(
         rate=cfg.dropout_rate, broadcast_dims=(-2,))(
             y, deterministic=deterministic)
     y = y.astype(cfg.dtype)
+
+    if cfg.use_positional_embedding:
+      y = PositionalEmbedding(cfg.base_emb_dim)(y, decoder_positions)
 
     BlockLayer = self.get_decoder_layer()
 
@@ -230,16 +239,21 @@ class Decoder(nn.Module):
       )
     else:
       for lyr in range(cfg.num_decoder_layers):
+        # if lyr == 0:
+        #   jax.debug.print("Mohit: before layer0 {x}", x = y[0,:,0])
         # [batch, length, emb_dim] -> [batch, length, emb_dim]
-        y = BlockLayer(config=cfg, mesh=mesh, name=f'layers_{lyr}')(
+        y = BlockLayer(config=cfg, mesh=mesh,layer_idx = lyr, name=f'layers_{lyr}')(
             y,
             decoder_segment_ids,
             decoder_positions,
             deterministic,
             model_mode,
         )
+        # if lyr == 0:
+        jax.debug.print("Mohit: after layer_{i} {x}", x = y[0,:,0], i = lyr)
 
     y = RMSNorm(dtype=cfg.dtype, name='decoder_norm', epsilon=cfg.rms_norm_epsilon,kernel_axes=('embed',))(y)
+    jax.debug.print("Mohit: after final layer norm {x}", x = y[0,:,0])
     y = nn.Dropout(rate=cfg.dropout_rate, broadcast_dims=(-2,))(
         y, deterministic=deterministic
     )

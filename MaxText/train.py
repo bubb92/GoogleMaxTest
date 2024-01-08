@@ -41,6 +41,7 @@ import pyconfig
 
 from input_pipeline import create_data_iterator_with_tokenizer
 from layers import models
+from layers import gamma
 
 import jax.numpy as jnp
 from jax import random
@@ -53,7 +54,7 @@ from cloud_tpu_diagnostics.configuration import debug_configuration
 from cloud_tpu_diagnostics.configuration import diagnostic_configuration
 from cloud_tpu_diagnostics.configuration import stack_trace_configuration
 
-Transformer = models.Transformer
+Transformer = gamma.Transformer
 
 
 def validate_train_config(config):

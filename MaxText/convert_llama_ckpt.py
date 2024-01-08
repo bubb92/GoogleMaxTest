@@ -249,7 +249,7 @@ def convert(base_model_path, maxtext_model_path, model_size):
 
   #convert all weights to jax.numpy
   jax_weights = jax.tree_map(jnp.array, jax_weights)
-
+  breakpoint()
   print(f"jax_weights = {jax_weights}")
 
   #dummy configs for the checkpoint_manager

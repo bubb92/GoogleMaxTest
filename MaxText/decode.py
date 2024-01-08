@@ -103,6 +103,7 @@ def prefill_predict_step(inputs, input_positions, decoder_segment_ids,
 
 def ar_predict_single_token(token_input, token_position, kv_cache, state, rngkey, model):
   """Predict one token, return new cache"""
+  jax.debug.print("Mohit: inside ar_predict {x}", x = token_input)
   flat_logits, new_vars = model.apply(
     {
         "params": state.params,
@@ -123,11 +124,11 @@ def compute_prefill(config, model, state, rng, sp_tokenizer, mesh, state_mesh_sh
 
   replicated_sharding = jax.sharding.NamedSharding(mesh, P(None))
   tokenized_prompt = [config.prompt] * int(config.per_device_batch_size * jax.device_count())
-
+  
   # Encode the demo prompt -- to measure performance we encode it multiple times.
   tokenized_prompts, prompt_decoder_positions, prompt_decoder_segment_ids  = encode_strings(tokenized_prompt,\
       config.max_prefill_predict_length, sp_tokenizer, mesh)
-
+  jax.debug.print("Mohit: tokenized_prompt = {x}", x = tokenized_prompts)
   partial_prefill_predict_step = functools.partial(prefill_predict_step, model=model)
   p_prefill_predict_step = jax.jit(
       partial_prefill_predict_step,
@@ -205,7 +206,8 @@ def decode_loop(config, state=None):
 
   prefill_cache, new_id, new_position = prefill_or_load(config, model, state, rng, sp_tokenizer,\
                                                    mesh, state_mesh_shardings, kv_cache_mesh_shardings)
-
+  import sys
+  sys.exit(0)
   partial_ar_predict_step = functools.partial(ar_predict_single_token, model=model)
   partial_ar_predict_step.__name__ = "partial_ar_predict_step"
   p_ar_predict_step = jax.jit(
@@ -225,7 +227,8 @@ def decode_loop(config, state=None):
   #add the new_id which is the first generated token to outputs
   outputs = [new_id]
 
-  for step in range(config.max_prefill_predict_length, config.max_target_length-1):
+  # for step in range(config.max_prefill_predict_length, config.max_target_length-1):
+  for step in range(0, config.max_target_length-1):
     if step == first_profiling_step:
       max_utils.activate_profiler(config)
     new_position, new_cache, new_id = p_ar_predict_step(new_id, new_position, new_cache, state, rng)
