@@ -16,6 +16,7 @@
 
 """Create an Orbax CheckpointManager with specified (Async or not) Checkpointer."""
 
+import datetime
 from etils import epath
 import jax
 from orbax import checkpoint
@@ -99,15 +100,23 @@ def load_state_if_possible(checkpoint_manager: CheckpointManager,
   if latest_step is not None:
     max_logging.log(f"restoring state from this run's directory latest step \
         {latest_step}")
-    return checkpoint_manager.restore(latest_step, abstract_unboxed_pre_state,
+    checkpoint_load_start = datetime.datetime.now()
+    restore_items = checkpoint_manager.restore(latest_step, abstract_unboxed_pre_state,
                                       {"restore_args" : restore_args}), None
+    checkpoint_load_end = datetime.datetime.now()
+    print(" ROSHANI CHECKPOINT RESTORE TIME IS ", checkpoint_load_end - checkpoint_load_start)
+    return restore_items
   elif first_checkpoint_path != "":
     max_logging.log(f"restoring state from first_checkpoint_path {first_checkpoint_path}")
     p = epath.Path(first_checkpoint_path)
     checkpointer = Checkpointer(checkpoint.PyTreeCheckpointHandler())
-    return None, checkpointer.restore(p,
+    checkpoint_load_start = datetime.datetime.now()
+    restore_items = checkpointer.restore(p,
                                       item=abstract_unboxed_pre_state,
                                       restore_args=restore_args).params
+    checkpoint_load_end = datetime.datetime.now()
+    print(" ROSHANI CHECKPOINT RESTORE TIME IS ", checkpoint_load_end - checkpoint_load_start)
+    return None,restore_items 
   elif load_from_other_directory != "":
     p = epath.Path(load_from_other_directory)
     checkpointer_loader = Checkpointer(checkpoint.PyTreeCheckpointHandler())
@@ -118,8 +127,12 @@ def load_state_if_possible(checkpoint_manager: CheckpointManager,
     else:
       step = load_from_other_directory_step
       max_logging.log(f"restoring state from {load_from_other_directory} step {step}")
-    return mngr_loader.restore(step, abstract_unboxed_pre_state,
+    checkpoint_load_start = datetime.datetime.now()
+    restore_items = mngr_loader.restore(step, abstract_unboxed_pre_state,
                                       {"restore_args" : restore_args}), None
+    checkpoint_load_end = datetime.datetime.now()
+    print(" ROSHANI CHECKPOINT RESTORE TIME IS ", checkpoint_load_end - checkpoint_load_start)
+    return restore_items
   else:
     max_logging.log("No existing checkpoints found, not restoring checkpoint.")
     return None, None
